@@ -270,11 +270,8 @@ export default function PosTerminal({
   const handleConfirmCheckout = async () => {
     if (!activeOrder || !paymentMethod) return;
 
-    try {
-      const paidOrder = await onPayOrder(activeOrder.id, paymentMethod);
+    const resetPosState = (paidOrder: any) => {
       onTriggerReceipt(paidOrder);
-      
-      // Reset POS States after receipt trigger
       setCart([]);
       setSelectedTable(null);
       setSelectedCustomer(null);
@@ -287,8 +284,88 @@ export default function PosTerminal({
       setCashReceived("");
       setCardTxRef("");
       setShowTablePopup(true); // Return back to floor plan
-    } catch (e) {
-      alert("Payment processing failure. Check session state.");
+    };
+
+    if (paymentMethod === "cash") {
+      try {
+        const paidOrder = await onPayOrder(activeOrder.id, paymentMethod);
+        resetPosState(paidOrder);
+      } catch (e) {
+        alert("Payment processing failure. Check session state.");
+      }
+      return;
+    }
+
+    // Razorpay Integration for Card & UPI
+    try {
+      // 1. Fetch Razorpay key configuration
+      const configRes = await fetch("/api/payment/config");
+      const configData = await configRes.json();
+      if (!configData.keyId) {
+        throw new Error("Razorpay is not configured on this server. Check your environment variables.");
+      }
+
+      // 2. Ask backend to create a Razorpay Order
+      const res = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: activeOrder.id }),
+      });
+      const rzpOrderData = await res.json();
+      if (rzpOrderData.error) throw new Error(rzpOrderData.error);
+
+      // 3. Open Razorpay checkout modal
+      const options = {
+        key: configData.keyId,
+        amount: rzpOrderData.amount,
+        currency: rzpOrderData.currency,
+        name: "Cafe Odoo POS",
+        description: `Payment for Order #${activeOrder.orderNumber}`,
+        order_id: rzpOrderData.id,
+        handler: async function (response: any) {
+          // 4. Verify payment on success
+          try {
+            const verifyRes = await fetch("/api/payment/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: activeOrder.id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpaySignature: response.razorpay_signature,
+                paymentMethod: paymentMethod // 'card' or 'upi'
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              alert("Payment successful!");
+              resetPosState(verifyData.order);
+            } else {
+              alert("Payment verification failed: " + verifyData.error);
+            }
+          } catch (err: any) {
+            alert("Verification failed: " + err.message);
+          }
+        },
+        prefill: {
+          name: selectedCustomer?.name || "Guest Customer",
+          email: selectedCustomer?.email || "customer@cafeodoo.com",
+          contact: selectedCustomer?.phone || "",
+        },
+        theme: {
+          color: "#6F4E37", // Cafe brand brown color
+        },
+        modal: {
+          ondismiss: function() {
+            alert("Payment cancelled.");
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      alert("Razorpay payment initialization failed: " + err.message);
     }
   };
 

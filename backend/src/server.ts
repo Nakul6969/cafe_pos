@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs";
+import Razorpay from "razorpay";
 import { connectDB, prisma } from "./database/db";
 
 dotenv.config();
@@ -1162,6 +1163,90 @@ app.post("/api/orders/:id/pay", requireAuth, async (req, res) => {
     res.json(updatedOrder);
   } catch (err) {
     res.status(500).json({ error: "Failed to finalize payment" });
+  }
+});
+
+// Initialize Razorpay client
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
+
+// Get Razorpay configuration
+app.get("/api/payment/config", requireAuth, (req, res) => {
+  res.json({ keyId: process.env.RAZORPAY_KEY_ID || "" });
+});
+
+// Create a Razorpay Order
+app.post("/api/payment/create-order", requireAuth, async (req, res) => {
+  const { orderId } = req.body;
+  if (!orderId) return res.status(400).json({ error: "Order ID is required." });
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(orderId) },
+    });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const options = {
+      amount: Math.round(order.total * 100), // amount in paise
+      currency: "INR",
+      receipt: `receipt_${order.id}`,
+    };
+
+    const rzpOrder = await razorpay.orders.create(options);
+    res.json({
+      id: rzpOrder.id,
+      amount: rzpOrder.amount,
+      currency: rzpOrder.currency,
+    });
+  } catch (err) {
+    console.error("Razorpay Order Creation Error:", err);
+    res.status(500).json({ error: "Failed to initiate Razorpay order." });
+  }
+});
+
+// Verify Razorpay Payment Signature
+app.post("/api/payment/verify", requireAuth, async (req, res) => {
+  const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature, paymentMethod } = req.body;
+
+  try {
+    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "");
+    hmac.update(razorpayOrderId + "|" + razorpayPaymentId);
+    const generatedSignature = hmac.digest("hex");
+
+    if (generatedSignature !== razorpaySignature) {
+      return res.status(400).json({ error: "Payment verification failed. Invalid signature." });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: Number(orderId) }
+    });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const newStatus = (order.status === "draft" || !order.status) ? "To Cook" : order.status;
+    const updatedOrder = await prisma.order.update({
+      where: { id: Number(orderId) },
+      data: {
+        status: newStatus,
+        paymentMethod: paymentMethod || "card"
+      },
+      include: { items: true }
+    });
+
+    if (order.tableId) {
+      const table = await prisma.table.update({
+        where: { id: order.tableId },
+        data: { status: "available" }
+      });
+      broadcastEvent("TABLE_STATUS_CHANGE", table);
+    }
+
+    broadcastEvent("ORDER_PAID", updatedOrder);
+    res.json({ success: true, order: updatedOrder });
+  } catch (err) {
+    console.error("Razorpay Verification Error:", err);
+    res.status(500).json({ error: "Verification failed." });
   }
 });
 
