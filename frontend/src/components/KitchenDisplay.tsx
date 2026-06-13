@@ -7,9 +7,9 @@ interface KitchenDisplayProps {
   orders: Order[];
   tables: Table[];
   products: Product[];
-  onCompleteItem: (orderId: string, productId: string) => void;
-  onCompleteTicket: (orderId: string) => void;
-  onDeleteTicket?: (orderId: string) => void;
+  onCompleteItem: (orderId: number | string, productId: string) => void;
+  onCompleteTicket: (orderId: number | string) => void;
+  onDeleteTicket?: (orderId: number | string) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -270,8 +270,8 @@ interface TicketCardProps {
   order: Order;
   currentTime: number;
   getTableNumber: (id?: string) => string;
-  onCompleteItem: (orderId: string, productId: string) => void;
-  onCompleteTicket: (orderId: string) => void;
+  onCompleteItem: (orderId: number | string, productId: string) => void;
+  onCompleteTicket: (orderId: number | string) => void;
   isCompletedView?: boolean;
 }
 

@@ -84,7 +84,7 @@ model Promotion {
 }
 
 model Order {
-  id            String      @id
+  id            Int         @id @default(autoincrement())
   orderNumber   String      @unique
   tableId       String?
   customerId    String?
@@ -103,7 +103,7 @@ model Order {
 
 model OrderItem {
   id            String  @id @default(uuid())
-  orderId       String
+  orderId       Int
   order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId     String
   productName   String

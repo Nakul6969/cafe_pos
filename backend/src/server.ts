@@ -290,6 +290,10 @@ app.post("/api/products", requireAuth, requireRole(["admin"]), async (req, res) 
     return res.status(400).json({ error: "Missing required fields to create product." });
   }
 
+  if (Number(price) < 0) {
+    return res.status(400).json({ error: "Product price cannot be negative." });
+  }
+
   try {
     const productId = "prod-" + Math.floor(Math.random() * 100000);
     const product = await prisma.product.create({
@@ -319,7 +323,12 @@ app.put("/api/products/:id", requireAuth, requireRole(["admin"]), async (req, re
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (categoryId !== undefined) updateData.categoryId = categoryId;
-    if (price !== undefined) updateData.price = Number(price);
+    if (price !== undefined) {
+      if (Number(price) < 0) {
+        return res.status(400).json({ error: "Product price cannot be negative." });
+      }
+      updateData.price = Number(price);
+    }
     if (unit !== undefined) updateData.unit = unit;
     if (tax !== undefined) updateData.tax = Number(tax);
     if (description !== undefined) updateData.description = description;
@@ -957,10 +966,8 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     const count = await prisma.order.count();
     const orderNumber = `CF-${1001 + count}`;
 
-    const orderId = "ord-" + Math.floor(Math.random() * 100000);
     const newOrder = await prisma.order.create({
       data: {
-        id: orderId,
         orderNumber,
         tableId: tableId || null,
         customerId: customerId || null,
@@ -1011,7 +1018,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
 app.post("/api/orders/:id/kitchen-items", requireAuth, async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
     if (!order) return res.status(404).json({ error: "Order details not found" });
@@ -1026,7 +1033,7 @@ app.post("/api/orders/:id/kitchen-items", requireAuth, async (req, res) => {
     }
 
     const updatedOrder = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
 
@@ -1043,7 +1050,7 @@ app.post(["/api/orders/:id/kitchen-complete-item", "/api/orders/:id/complete-ite
 
   try {
     const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
     if (!order) return res.status(404).json({ error: "Order details not found" });
@@ -1057,7 +1064,7 @@ app.post(["/api/orders/:id/kitchen-complete-item", "/api/orders/:id/complete-ite
     }
 
     const updatedOrder = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
 
@@ -1072,7 +1079,7 @@ app.post(["/api/orders/:id/kitchen-complete-item", "/api/orders/:id/complete-ite
 app.post(["/api/orders/:id/kitchen-ticket-complete", "/api/orders/:id/complete-ticket"], requireAuth, async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
     if (!order) return res.status(404).json({ error: "Order details not found" });
@@ -1090,7 +1097,7 @@ app.post(["/api/orders/:id/kitchen-ticket-complete", "/api/orders/:id/complete-t
 
     // Update the order status in database
     await prisma.order.update({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       data: {
         status: nextStatus,
         completedAt: nextStatus === "Completed" ? new Date().toISOString() : undefined
@@ -1110,7 +1117,7 @@ app.post(["/api/orders/:id/kitchen-ticket-complete", "/api/orders/:id/complete-t
     }
 
     const updatedOrder = await prisma.order.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       include: { items: true }
     });
 
@@ -1128,13 +1135,13 @@ app.post("/api/orders/:id/pay", requireAuth, async (req, res) => {
 
   try {
     const order = await prisma.order.findUnique({
-      where: { id: req.params.id }
+      where: { id: Number(req.params.id) }
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     const newStatus = (order.status === "draft" || !order.status) ? "To Cook" : order.status;
     const updatedOrder = await prisma.order.update({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
       data: {
         status: newStatus,
         paymentMethod
@@ -1162,7 +1169,7 @@ app.post("/api/orders/:id/pay", requireAuth, async (req, res) => {
 app.delete("/api/orders/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
-      where: { id: req.params.id }
+      where: { id: Number(req.params.id) }
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
 
@@ -1179,7 +1186,7 @@ app.delete("/api/orders/:id", requireAuth, requireRole(["admin"]), async (req, r
       broadcastEvent("TABLE_STATUS_CHANGE", table);
     }
 
-    await prisma.order.delete({ where: { id: req.params.id } });
+    await prisma.order.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true, message: "Draft order was dismissed successfully." });
   } catch (err) {
     res.status(500).json({ error: "Failed to dismiss order" });

@@ -13,7 +13,7 @@ interface PosTerminalProps {
   onOpenSession: (balance: number) => void;
   onCloseSession: (amount: number) => void;
   onSubmitOrder: (order: Partial<Order>) => Promise<Order>;
-  onPayOrder: (orderId: string, paymentMethod: 'cash' | 'card' | 'upi') => Promise<Order>;
+  onPayOrder: (orderId: number | string, paymentMethod: 'cash' | 'card' | 'upi') => Promise<Order>;
   onTableStatusChange: (tableId: string, status: 'available' | 'occupied' | 'reserved') => void;
   onAddCustomer: (customer: { name: string; email: string; phone: string }) => Promise<Customer>;
   onTriggerReceipt: (order: Order) => void;

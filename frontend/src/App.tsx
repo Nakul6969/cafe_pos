@@ -606,7 +606,7 @@ export default function App() {
   };
 
   const handlePayOrder = async (
-    orderId: string,
+    orderId: number | string,
     method: 'cash' | 'card' | 'upi',
     paymentDetails?: Order["paymentDetails"]
   ) => {
@@ -626,7 +626,7 @@ export default function App() {
     return parsed;
   };
 
-  const handleCompleteKitchenItem = async (orderId: string, productId: string) => {
+  const handleCompleteKitchenItem = async (orderId: number | string, productId: string) => {
     try {
       const res = await fetch(`/api/orders/${orderId}/complete-item`, {
         method: "POST",
@@ -641,7 +641,7 @@ export default function App() {
     } catch {}
   };
 
-  const handleCompleteWholeTicket = async (orderId: string) => {
+  const handleCompleteWholeTicket = async (orderId: number | string) => {
     try {
       const res = await fetch(`/api/orders/${orderId}/complete-ticket`, {
         method: "POST",

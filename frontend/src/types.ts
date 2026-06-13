@@ -87,7 +87,7 @@ export interface OrderItem {
 export type OrderStatus = 'draft' | 'to_cook' | 'preparing' | 'completed' | 'paid' | 'cancelled' | 'To Cook' | 'Preparing' | 'Completed';
 
 export interface Order {
-  id: string;
+  id: number;
   orderNumber: string;
   tableId?: string;
   customerId?: string;

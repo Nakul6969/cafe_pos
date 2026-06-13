@@ -652,6 +652,10 @@ export default function AdminPanel({
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (prodForm.price < 0) {
+                    alert("Product price cannot be negative.");
+                    return;
+                  }
                   try {
                     if (activeEditingId === "new") {
                       await onAddProduct(prodForm);
@@ -689,6 +693,8 @@ export default function AdminPanel({
                     <input
                       type="number"
                       required
+                      min="0"
+                      step="any"
                       value={prodForm.price}
                       onChange={(e) => setProdForm({ ...prodForm, price: Number(e.target.value) })}
                       className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs outline-none focus:border-purple-500"

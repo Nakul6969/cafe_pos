@@ -179,11 +179,12 @@ async function main() {
   // Seed Orders & OrderItems
   if (data.orders && Array.isArray(data.orders)) {
     for (const o of data.orders) {
+      const numericOrderId = typeof o.id === "string" ? parseInt(o.id.replace(/\D/g, "")) || Math.floor(Math.random() * 10000) : Number(o.id);
       await prisma.order.upsert({
-        where: { id: o.id },
+        where: { id: numericOrderId },
         update: {},
         create: {
-          id: o.id,
+          id: numericOrderId,
           orderNumber: o.orderNumber || "CF-0000",
           tableId: o.tableId || null,
           customerId: o.customerId || null,
@@ -203,7 +204,7 @@ async function main() {
         for (const itm of o.items) {
           const existingItem = await prisma.orderItem.findFirst({
             where: {
-              orderId: o.id,
+              orderId: numericOrderId,
               productId: itm.productId,
             },
           });
@@ -211,7 +212,7 @@ async function main() {
           if (!existingItem) {
             await prisma.orderItem.create({
               data: {
-                orderId: o.id,
+                orderId: numericOrderId,
                 productId: itm.productId,
                 productName: itm.productName || "Item",
                 quantity: Number(itm.quantity) || 1,
