@@ -1166,11 +1166,20 @@ app.post("/api/orders/:id/pay", requireAuth, async (req, res) => {
   }
 });
 
-// Initialize Razorpay client
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
+// Lazy helper to get Razorpay instance
+let razorpayInstance: Razorpay | null = null;
+function getRazorpay(): Razorpay {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay Key ID or Secret is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.");
+  }
+  if (!razorpayInstance) {
+    razorpayInstance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayInstance;
+}
 
 // Get Razorpay configuration
 app.get("/api/payment/config", requireAuth, (req, res) => {
@@ -1194,7 +1203,7 @@ app.post("/api/payment/create-order", requireAuth, async (req, res) => {
       receipt: `receipt_${order.id}`,
     };
 
-    const rzpOrder = await razorpay.orders.create(options);
+    const rzpOrder = await getRazorpay().orders.create(options);
     res.json({
       id: rzpOrder.id,
       amount: rzpOrder.amount,
