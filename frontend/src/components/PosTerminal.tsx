@@ -299,7 +299,11 @@ export default function PosTerminal({
     // Razorpay Integration for Card & UPI
     try {
       // 1. Fetch Razorpay key configuration
-      const configRes = await fetch("/api/payment/config");
+      const configRes = await fetch("/api/payment/config", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+        }
+      });
       const configData = await configRes.json();
       if (!configData.keyId) {
         throw new Error("Razorpay is not configured on this server. Check your environment variables.");
@@ -308,7 +312,10 @@ export default function PosTerminal({
       // 2. Ask backend to create a Razorpay Order
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+        },
         body: JSON.stringify({ orderId: activeOrder.id }),
       });
       const rzpOrderData = await res.json();
@@ -327,7 +334,10 @@ export default function PosTerminal({
           try {
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+              },
               body: JSON.stringify({
                 orderId: activeOrder.id,
                 razorpayPaymentId: response.razorpay_payment_id,
