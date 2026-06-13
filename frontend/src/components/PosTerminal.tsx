@@ -200,7 +200,7 @@ export default function PosTerminal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`,
         },
         body: JSON.stringify({ transcript: text }),
       });
@@ -301,7 +301,7 @@ export default function PosTerminal({
       // 1. Fetch Razorpay key configuration
       const configRes = await fetch("/api/payment/config", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+          "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`
         }
       });
       const configData = await configRes.json();
@@ -314,7 +314,7 @@ export default function PosTerminal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+          "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`
         },
         body: JSON.stringify({ orderId: activeOrder.id }),
       });
@@ -336,7 +336,7 @@ export default function PosTerminal({
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${localStorage.getItem("cafeflow_token")}`
+                "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`
               },
               body: JSON.stringify({
                 orderId: activeOrder.id,
