@@ -1312,7 +1312,7 @@ app.get("/api/payment/check-status/:orderId", requireAuth, async (req, res) => {
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     // If order is already paid locally, return true
-    if (order.status === "paid" || order.status === "To Cook" || order.paymentMethod !== null) {
+    if (order.status === "paid" || order.paymentMethod !== null) {
       return res.json({ paid: true, order });
     }
 
