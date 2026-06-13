@@ -70,6 +70,51 @@ export default function PosTerminal({
   const [cashReceived, setCashReceived] = useState<string>("");
   const [cardTxRef, setCardTxRef] = useState<string>("");
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [razorpayQrUrl, setRazorpayQrUrl] = useState<string | null>(null);
+  const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(false);
+
+  const resetPosState = (paidOrder: any) => {
+    onTriggerReceipt(paidOrder);
+    setCart([]);
+    setSelectedTable(null);
+    setSelectedCustomer(null);
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCustomOrderNotes("");
+    setOnPaymentScreen(false);
+    setPaymentMethod(null);
+    setActiveOrder(null);
+    setCashReceived("");
+    setCardTxRef("");
+    setRazorpayQrUrl(null);
+    setShowTablePopup(true); // Return back to floor plan
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (onPaymentScreen && paymentMethod === "upi" && activeOrder) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/payment/check-status/${activeOrder.id}`, {
+            headers: {
+              "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`
+            }
+          });
+          const data = await res.json();
+          if (data.paid) {
+            clearInterval(interval);
+            alert("Payment detected successfully!");
+            resetPosState(data.order);
+          }
+        } catch (e) {
+          console.error("Error polling payment status", e);
+        }
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [onPaymentScreen, paymentMethod, activeOrder]);
 
   // Customer Creator Form
   const [customerName, setCustomerName] = useState("");
@@ -266,25 +311,33 @@ export default function PosTerminal({
     }
   };
 
+  const handleSelectUpi = async () => {
+    setPaymentMethod("upi");
+    if (!activeOrder) return;
+    setIsGeneratingQr(true);
+    try {
+      const res = await fetch("/api/payment/create-qr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("cafe_odoo_token") || localStorage.getItem("cafeflow_token") || ""}`
+        },
+        body: JSON.stringify({ orderId: activeOrder.id }),
+      });
+      const data = await res.json();
+      if (data.qrUrl) {
+        setRazorpayQrUrl(data.qrUrl);
+      }
+    } catch (e) {
+      console.error("Failed to generate Razorpay QR", e);
+    } finally {
+      setIsGeneratingQr(false);
+    }
+  };
+
   // Submit complete payment
   const handleConfirmCheckout = async () => {
     if (!activeOrder || !paymentMethod) return;
-
-    const resetPosState = (paidOrder: any) => {
-      onTriggerReceipt(paidOrder);
-      setCart([]);
-      setSelectedTable(null);
-      setSelectedCustomer(null);
-      setAppliedCoupon(null);
-      setCouponInput("");
-      setCustomOrderNotes("");
-      setOnPaymentScreen(false);
-      setPaymentMethod(null);
-      setActiveOrder(null);
-      setCashReceived("");
-      setCardTxRef("");
-      setShowTablePopup(true); // Return back to floor plan
-    };
 
     if (paymentMethod === "cash") {
       try {
@@ -401,8 +454,9 @@ export default function PosTerminal({
   // Dynamic UPI Code url inside the POS Checkout panel
   const upiVpaStr = "cafeflow@ybl";
   const finalPaidStr = finalTotal.toFixed(2);
-  const upirefe = `upi://pay?pa=${upiVpaStr}&pn=CafeFlow%20POS&am=${finalPaidStr}&cu=INR&tn=CFOrder`;
-  const checkoutQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(upirefe)}`;
+  const checkoutQrCode = razorpayQrUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(razorpayQrUrl)}`
+    : `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`upi://pay?pa=${upiVpaStr}&pn=CafeFlow%20POS&am=${finalPaidStr}&cu=INR&tn=CFOrder`)}`;
 
   // Active terminal checks
   if (!currentSession) {
@@ -953,6 +1007,7 @@ export default function PosTerminal({
                 onClick={() => {
                   setPaymentMethod("cash");
                   setCashReceived("");
+                  setRazorpayQrUrl(null);
                 }}
                 className={`flex flex-col items-center gap-2 rounded-2xl border p-4 cursor-pointer transition-all duration-200 ${
                   paymentMethod === "cash"
@@ -968,6 +1023,7 @@ export default function PosTerminal({
                 onClick={() => {
                   setPaymentMethod("card");
                   setCardTxRef("");
+                  setRazorpayQrUrl(null);
                 }}
                 className={`flex flex-col items-center gap-2 rounded-2xl border p-4 cursor-pointer transition-all duration-200 ${
                   paymentMethod === "card"
@@ -981,7 +1037,7 @@ export default function PosTerminal({
 
               <button
                 onClick={() => {
-                  setPaymentMethod("upi");
+                  handleSelectUpi();
                 }}
                 className={`flex flex-col items-center gap-2 rounded-2xl border p-4 cursor-pointer transition-all duration-200 ${
                   paymentMethod === "upi"
@@ -1038,12 +1094,20 @@ export default function PosTerminal({
 
               {paymentMethod === "upi" && (
                 <div className="mt-2 flex flex-col items-center bg-[#FAF7F2] p-4 rounded-xl border border-dashed border-[#E6DDD2] tracking-wider">
-                  <span className="text-[10px] font-bold text-[#6F4E37] uppercase tracking-wider">UPI Dynamic Code (Auto-generated)</span>
+                  <span className="text-[10px] font-bold text-[#6F4E37] uppercase tracking-wider">
+                    {razorpayQrUrl ? "Razorpay Live UPI Code" : "UPI Dynamic Code (Auto-generated)"}
+                  </span>
                   <p className="text-xs text-[#6F4E37] font-semibold mb-3">Pay exactly ₹{finalTotal.toFixed(2)}</p>
-                  <div className="bg-white p-2.5 rounded-lg border border-[#E6DDD2] shadow-sm">
-                    <img src={checkoutQrCode} alt="Terminal QR" className="h-[125px] w-[125px] object-contain" referrerPolicy="no-referrer" />
+                  <div className="bg-white p-2.5 rounded-lg border border-[#E6DDD2] shadow-sm flex items-center justify-center min-h-[125px] min-w-[125px]">
+                    {isGeneratingQr ? (
+                      <span className="text-xs text-[#6F4E37] font-bold animate-pulse">Generating Live QR...</span>
+                    ) : (
+                      <img src={checkoutQrCode} alt="Terminal QR" className="h-[125px] w-[125px] object-contain" referrerPolicy="no-referrer" />
+                    )}
                   </div>
-                  <span className="mt-2 text-[9px] font-mono text-[#C8A96B] uppercase font-bold">Auto-Voucher active</span>
+                  <span className="mt-2 text-[9px] font-mono text-[#C8A96B] uppercase font-bold">
+                    {razorpayQrUrl ? "Auto-detecting payment..." : "Auto-Voucher active"}
+                  </span>
                 </div>
               )}
 

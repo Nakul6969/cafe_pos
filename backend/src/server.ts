@@ -1181,6 +1181,9 @@ function getRazorpay(): Razorpay {
   return razorpayInstance;
 }
 
+// Memory map to track active payment link IDs by order ID
+const activePaymentLinks = new Map<number, string>();
+
 // Get Razorpay configuration
 app.get("/api/payment/config", requireAuth, (req, res) => {
   res.json({ keyId: process.env.RAZORPAY_KEY_ID || "" });
@@ -1256,6 +1259,95 @@ app.post("/api/payment/verify", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Razorpay Verification Error:", err);
     res.status(500).json({ error: "Verification failed." });
+  }
+});
+
+// Create a Razorpay Payment Link QR
+app.post("/api/payment/create-qr", requireAuth, async (req, res) => {
+  const { orderId } = req.body;
+  if (!orderId) return res.status(400).json({ error: "Order ID is required." });
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(orderId) },
+    });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    // Create a Razorpay Payment Link
+    const options = {
+      amount: Math.round(order.total * 100), // amount in paise
+      currency: "INR",
+      accept_partial: false,
+      reference_id: String(order.id),
+      description: `Payment for Order #${order.orderNumber}`,
+      customer: {
+        name: "Cafe Customer",
+        email: "customer@cafeodoo.com",
+        contact: "9999999999"
+      }
+    };
+
+    const plink = await getRazorpay().paymentLink.create(options);
+    
+    // Store the payment link ID in memory to check status later
+    activePaymentLinks.set(Number(orderId), plink.id);
+
+    res.json({
+      qrUrl: plink.short_url,
+      paymentLinkId: plink.id
+    });
+  } catch (err: any) {
+    console.error("Razorpay Payment Link Creation Error:", err);
+    res.status(500).json({ error: "Failed to initiate Razorpay payment link." });
+  }
+});
+
+// Check status of a Razorpay Payment Link
+app.get("/api/payment/check-status/:orderId", requireAuth, async (req, res) => {
+  const { orderId } = req.params;
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(orderId) }
+    });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    // If order is already paid locally, return true
+    if (order.status === "paid" || order.status === "To Cook" || order.paymentMethod !== null) {
+      return res.json({ paid: true, order });
+    }
+
+    // Otherwise, check Razorpay Payment Link status
+    const plinkId = activePaymentLinks.get(Number(orderId));
+    if (plinkId) {
+      const plink = await getRazorpay().paymentLink.fetch(plinkId);
+      if (plink.status === "paid") {
+        const newStatus = (order.status === "draft" || !order.status) ? "To Cook" : order.status;
+        const updatedOrder = await prisma.order.update({
+          where: { id: Number(orderId) },
+          data: {
+            status: newStatus,
+            paymentMethod: "upi"
+          },
+          include: { items: true }
+        });
+
+        if (order.tableId) {
+          const table = await prisma.table.update({
+            where: { id: order.tableId },
+            data: { status: "available" }
+          });
+          broadcastEvent("TABLE_STATUS_CHANGE", table);
+        }
+
+        broadcastEvent("ORDER_PAID", updatedOrder);
+        return res.json({ paid: true, order: updatedOrder });
+      }
+    }
+
+    res.json({ paid: false });
+  } catch (err) {
+    console.error("Error checking payment link status:", err);
+    res.status(500).json({ error: "Failed to check status." });
   }
 });
 
