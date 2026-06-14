@@ -3,6 +3,7 @@ import { Product, Category, Customer, Table, Session, Order, Coupon, Promotion }
 import { Search, ShoppingBag, Send, User, ChevronRight, Check, X, RotateCcw, AlertTriangle, QrCode, CreditCard, DollarSign, Plus, Minus, Trash2, ArrowLeft, Mic, Keyboard, Gift, Info } from "lucide-react";
 
 interface PosTerminalProps {
+  orders: Order[];
   products: Product[];
   categories: Category[];
   customers: Customer[];
@@ -20,6 +21,7 @@ interface PosTerminalProps {
 }
 
 export default function PosTerminal({
+  orders = [],
   products,
   categories,
   customers,
@@ -36,6 +38,7 @@ export default function PosTerminal({
   onTriggerReceipt,
 }: PosTerminalProps) {
   // Navigation & Sub-Selection States
+  const [catalogView, setCatalogView] = useState<'menu' | 'live_orders'>('menu');
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -124,6 +127,11 @@ export default function PosTerminal({
 
   // Helper variables
   const activeFloorTables = tables.filter((t) => t.floorId === selectedFloorId);
+  const getTableNumber = (tableId: string | null) => {
+    if (!tableId) return "Takeout";
+    const table = tables.find((t) => t.id === tableId);
+    return table ? `Table ${table.tableNumber}` : "Takeout";
+  };
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === "all" || p.categoryId === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -743,100 +751,188 @@ export default function PosTerminal({
       
       {/* COLUMN 1: LEFT SIDE CATALOG PANE */}
       <div className={`flex flex-col flex-1 border-r border-[#E6DDD2] overflow-hidden ${onPaymentScreen ? "hidden md:flex" : "flex"}`}>
-        {/* Catalog Control Panels (Search + Category scrolling) */}
+        {/* Catalog Control Panels (Search + Category scrolling + Views Tab Toggle) */}
         <div className="bg-white p-4 border-b border-[#E6DDD2] flex flex-col gap-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute top-3.5 left-3.5 h-4 w-4 text-[#6F4E37]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search food item, beverages, specialty espresso..."
-                className="w-full rounded-2xl border border-[#E6DDD2] bg-[#FAF7F2] pl-10 pr-4 py-2.5 text-xs outline-none text-[#2B2B2B] focus:border-[#6F4E37] focus:bg-white focus:ring-4 focus:ring-[#C8A96B]/20 transition duration-200"
-              />
-            </div>
-
-            {/* Simulated Voice Command Trigger Button */}
+          {/* Tab Switcher for Cashier */}
+          <div className="flex border-b border-[#E6DDD2] pb-1">
             <button
-              onClick={() => handleSimulateVoiceCommand("Add three Iced Lavender Lattes and one Smashed Avocado Toast please")}
-              className={`rounded-2xl p-2.5 border transition-all duration-200 cursor-pointer ${
-                isListeningVoice
-                  ? "bg-[#FFF9EB] text-[#C8A96B] border-[#C8A96B] pulsing-ring"
-                  : "bg-[#F5EFE6] border-[#E6DDD2] text-[#6F4E37] hover:bg-[#EFE3D3] hover:border-[#C8A96B]"
+              onClick={() => setCatalogView('menu')}
+              className={`flex-1 text-center py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                catalogView === 'menu'
+                  ? "text-[#6F4E37] border-b-2 border-[#6F4E37] font-black"
+                  : "text-[#C8A96B] hover:text-[#6F4E37] font-semibold"
               }`}
-              title="Simulate Voice Guided Order"
             >
-              <Mic className="h-4 w-4" />
+              Menu Catalog
+            </button>
+            <button
+              onClick={() => setCatalogView('live_orders')}
+              className={`flex-1 text-center py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                catalogView === 'live_orders'
+                  ? "text-[#6F4E37] border-b-2 border-[#6F4E37] font-black"
+                  : "text-[#C8A96B] hover:text-[#6F4E37] font-semibold"
+              }`}
+            >
+              Live Order Status
             </button>
           </div>
 
-          {/* Scrolling Categories tabs */}
-          <div className="flex gap-2 scrollbar-none overflow-x-auto py-1">
-            <button
-              onClick={() => setSelectedCategory("all")}
-              className={`rounded-xl px-4 py-2 text-xs font-black whitespace-nowrap border transition-all duration-200 cursor-pointer ${
-                selectedCategory === "all"
-                  ? "bg-[#6F4E37] text-white border-[#6F4E37] shadow-sm"
-                  : "bg-[#F5EFE6] text-[#6F4E37] border-[#E6DDD2] hover:bg-[#EFE3D3]"
-              }`}
-            >
-              All Catalog
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCategory(c.id)}
-                className={`rounded-xl px-4 py-2 text-xs font-black whitespace-nowrap border transition-all duration-200 cursor-pointer ${
-                  selectedCategory === c.id
-                    ? "bg-[#6F4E37] text-white border-[#6F4E37] shadow-sm"
-                    : "bg-[#F5EFE6] text-[#6F4E37] border-[#E6DDD2] hover:bg-[#EFE3D3]"
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Catalog Products card lists scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 min-h-[300px]">
-          {filteredProducts.map((p) => {
-            return (
-              <div
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="group relative flex flex-col rounded-2xl border border-[#E6DDD2] bg-white overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(111,78,55,0.12)] hover:border-[#C8A96B]"
-              >
-                <div className="relative aspect-square overflow-hidden bg-[#F5EFE6] h-40">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
+          {catalogView === 'menu' && (
+            <>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute top-3.5 left-3.5 h-4 w-4 text-[#6F4E37]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search food item, beverages, specialty espresso..."
+                    className="w-full rounded-2xl border border-[#E6DDD2] bg-[#FAF7F2] pl-10 pr-4 py-2.5 text-xs outline-none text-[#2B2B2B] focus:border-[#6F4E37] focus:bg-white focus:ring-4 focus:ring-[#C8A96B]/20 transition duration-200"
                   />
-                  <span
-                    className="absolute top-2 left-2 flex h-5 items-center rounded-lg px-2 font-display text-[9px] font-black bg-[#FAF7F2] text-[#6F4E37] border border-[#E6DDD2] uppercase tracking-wider"
-                  >
-                    {p.unit}
-                  </span>
-                </div>
-
-                <div className="flex-1 p-3 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-display text-xs font-bold text-[#3E2723] line-clamp-1">{p.name}</h4>
-                    <p className="mt-1 text-[10px] text-[#6B5B4D] font-medium line-clamp-2 leading-relaxed">{p.description}</p>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between border-t border-[#E6DDD2] pt-2 text-right">
-                    <span className="font-mono text-xs font-black text-[#6F4E37]">₹{p.price.toFixed(2)}</span>
-                    <span className="text-[9px] font-bold text-[#C8A96B]">GST {p.tax}%</span>
-                  </div>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Scrolling Categories tabs */}
+              <div className="flex gap-2 scrollbar-none overflow-x-auto py-1">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`rounded-xl px-4 py-2 text-xs font-black whitespace-nowrap border transition-all duration-200 cursor-pointer ${
+                    selectedCategory === "all"
+                      ? "bg-[#6F4E37] text-white border-[#6F4E37] shadow-sm"
+                      : "bg-[#F5EFE6] text-[#6F4E37] border-[#E6DDD2] hover:bg-[#EFE3D3]"
+                  }`}
+                >
+                  All Catalog
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCategory(c.id)}
+                    className={`rounded-xl px-4 py-2 text-xs font-black whitespace-nowrap border transition-all duration-200 cursor-pointer ${
+                      selectedCategory === c.id
+                        ? "bg-[#6F4E37] text-white border-[#6F4E37] shadow-sm"
+                        : "bg-[#F5EFE6] text-[#6F4E37] border-[#E6DDD2] hover:bg-[#EFE3D3]"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+
+        {catalogView === 'menu' ? (
+          /* Catalog Products card lists scrollable */
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 min-h-[300px]">
+            {filteredProducts.map((p) => {
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => addToCart(p)}
+                  className="group relative flex flex-col rounded-2xl border border-[#E6DDD2] bg-white overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(111,78,55,0.12)] hover:border-[#C8A96B]"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-[#F5EFE6] h-40">
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span
+                      className="absolute top-2 left-2 flex h-5 items-center rounded-lg px-2 font-display text-[9px] font-black bg-[#FAF7F2] text-[#6F4E37] border border-[#E6DDD2] uppercase tracking-wider"
+                    >
+                      {p.unit}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-display text-xs font-bold text-[#3E2723] line-clamp-1">{p.name}</h4>
+                      <p className="mt-1 text-[10px] text-[#6B5B4D] font-medium line-clamp-2 leading-relaxed">{p.description}</p>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between border-t border-[#E6DDD2] pt-2 text-right">
+                      <span className="font-mono text-xs font-black text-[#6F4E37]">₹{p.price.toFixed(2)}</span>
+                      <span className="text-[9px] font-bold text-[#C8A96B]">GST {p.tax}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Live Orders list scrollable */
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {[...orders]
+              .sort((a, b) => {
+                const idA = typeof a.id === 'number' ? a.id : Number(a.id);
+                const idB = typeof b.id === 'number' ? b.id : Number(b.id);
+                return idB - idA;
+              })
+              .length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-[#6F4E37] font-semibold">
+                <ShoppingBag className="h-8 w-8 mb-2 text-[#C8A96B]" />
+                <p className="text-xs">No orders placed yet.</p>
+              </div>
+            ) : (
+              [...orders]
+                .sort((a, b) => {
+                  const idA = typeof a.id === 'number' ? a.id : Number(a.id);
+                  const idB = typeof b.id === 'number' ? b.id : Number(b.id);
+                  return idB - idA;
+                })
+                .map((ord) => (
+                  <div key={ord.id} className="bg-white border border-[#E6DDD2] rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition duration-200">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-black text-sm text-[#3E2723]">{ord.orderNumber}</span>
+                        <span className="text-[9px] text-gray-500 font-mono">
+                          {ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[#6F4E37] font-semibold flex items-center gap-1.5">
+                        <span>{getTableNumber(ord.tableId)}</span>
+                        <span className="text-gray-300">•</span>
+                        <span>{ord.items?.length || 0} items</span>
+                      </div>
+                      <div className="text-xs font-black text-[#6F4E37]">
+                        Total: ₹{ord.total.toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          ord.paymentMethod 
+                            ? "bg-[#D1E7DD] text-[#0F5132]" 
+                            : "bg-[#F8D7DA] text-[#842029]"
+                        }`}>
+                          {ord.paymentMethod ? "Paid" : "Unpaid"}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          ord.status === "Completed"
+                            ? "bg-[#D1E7DD] text-[#0F5132]"
+                            : ord.status === "Preparing"
+                              ? "bg-[#FFE5D9] text-[#FF6B35]"
+                              : "bg-[#FFF3CD] text-[#664D03]"
+                        }`}>
+                          {ord.status || "To Cook"}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => onTriggerReceipt(ord)}
+                        className="flex items-center gap-1 rounded-lg border border-[#E6DDD2] bg-[#FAF7F2] hover:bg-[#F5EFE6] px-2.5 py-1 text-[10px] font-bold text-[#6F4E37] transition cursor-pointer"
+                      >
+                        <span>Receipt</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* COLUMN 2: CENTER CART & CALCULATOR SCREEN */}

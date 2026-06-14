@@ -778,6 +778,7 @@ export default function App() {
 
         {navigationView === "pos" && currentUser.role === "cashier" && (
           <PosTerminal
+            orders={orders}
             products={products}
             categories={categories}
             customers={customers}

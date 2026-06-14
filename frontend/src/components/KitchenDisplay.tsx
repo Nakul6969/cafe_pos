@@ -135,33 +135,6 @@ export default function KitchenDisplay({
 
   return (
     <div className="flex h-full flex-col bg-[#FAF7F2] text-[#2B2B2B] font-sans">
-      
-      {/* KDS Header Banner */}
-      <header className="flex items-center justify-between border-b border-[#E6DDD2] bg-[#FFFFFF] px-6 py-4">
-        <div className="flex items-center gap-3">
-          <BrandLogo size="md" />
-          <div>
-            <h1 className="font-display text-lg font-black text-[#3E2723]">Kitchen Portal</h1>
-            <p className="text-xs text-[#6F4E37] font-semibold">CafeFlow Point of Sale real-time kitchen monitors</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-full bg-[#FFF9EB] border border-[#C8A96B]/30 px-3 py-1 text-xs">
-            <span className="h-2 w-2 rounded-full bg-[#C8A96B] pulsing-ring" />
-            <span className="text-[#6F4E37] font-semibold">Live Listening Node (SSE Active)</span>
-          </div>
-
-          <button
-            onClick={triggerNotificationSound}
-            className="rounded-xl border border-[#E6DDD2] bg-[#FAF7F2] p-2 text-[#6F4E37] hover:bg-[#F5EFE6] transition cursor-pointer"
-            title="Test Kitchen Buzzer Sound Alarm"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-
       {/* KDS Body Columns (To Cook -> Preparing -> Completed) */}
       <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden p-6 md:grid-cols-3">
         
