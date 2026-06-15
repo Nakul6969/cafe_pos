@@ -98,45 +98,11 @@ Run both the frontend and backend concurrently in development mode:
 ```bash
 npm run dev
 ```
-*   **POS Terminal / Cashier Portal**: `http://localhost:5173` (Login: `admin@cafeflow.com` / `admin123`)
+*   **POS Terminal / Cashier Portal**: `http://localhost:5173` 
 *   **Backend Engine**: `http://localhost:3000`
-
----
-
-## ☁️ Deployment Guide (Render.com)
-
-In production, the backend is configured to **automatically serve the built frontend assets** (`dist` directory). You only need to deploy **one** Node Web Service and **one** PostgreSQL Database on Render.
-
-### 1. Create a PostgreSQL Database on Render
-*   Select the **Free** tier.
-*   Copy the **Internal Database URL** once it is created.
-
-### 2. Create a Web Service on Render
-*   Connect your GitHub repository.
-*   Configure the following settings:
-    *   **Build Command**: `npm install --production=false && npm run prisma:generate --workspace=backend && npm run build`
-    *   **Start Command**: `cd backend && npx prisma db push --accept-data-loss && npx prisma db seed && cd .. && npm run start`
-    *   **Instance Type**: `Free`
-
-### 3. Configure Environment Variables on Render
-Add the following keys under **Environment**:
-*   `NODE_ENV`: `production`
-*   `DATABASE_URL`: *[Paste Internal Database URL]*
-*   `JWT_SECRET`: *[Random secure string]*
-*   `RAZORPAY_KEY_ID`: *[Your Razorpay Key ID]*
-*   `RAZORPAY_KEY_SECRET`: *[Your Razorpay Key Secret]*
-*   `GEMINI_API_KEY`: *[Your Google Gemini API Key]* (optional)
-
----
-
-## 💳 Razorpay Webhook Configuration (Optional)
-To verify payments asynchronously, point your Razorpay Webhook endpoint on the Razorpay Dashboard to:
-`https://your-app-name.onrender.com/api/payment/verify`
-Select the event: `payment.captured`.
-
 ---
 
 ## 🔒 Default Login Credentials (After Seeding)
-*   **Admin / Cashier**: `admin@cafeflow.com` / `admin123`
-*   **Kitchen Chef**: `chef@cafeflow.com` / `chef123`
-*   **Employee**: `employee@cafeflow.com` / `employee123`
+*   **Admin / Cashier**: `admin@cafeflow.com` / `adminpass`
+*   **Kitchen Chef**: `chef@cafeflow.com` / `chefpass`
+*   **Employee**: `employee@cafeflow.com` / `employeepass`
